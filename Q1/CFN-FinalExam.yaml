@@ -1,0 +1,175 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create specified AWS resources
+
+Resources:
+  MetroDDB:
+    Type: 'AWS::DynamoDB::Table'
+    Properties: 
+      TableName: "metroddb"
+      AttributeDefinitions:
+        - AttributeName: "ID"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "ID"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties: 
+      CidrBlock: '10.50.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: MyVPC
+
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties: {}
+  
+  AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties: 
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+
+  Subnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.50.1.0/24'
+      AvailabilityZone: 'us-east-1a'
+      MapPublicIpOnLaunch: true
+
+  Subnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.50.2.0/24'
+      AvailabilityZone: 'us-east-1a'
+      MapPublicIpOnLaunch: false
+
+  Subnet3:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.50.3.0/24'
+      AvailabilityZone: 'us-east-1b'
+      MapPublicIpOnLaunch: true
+
+  Subnet4:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.50.4.0/24'
+      AvailabilityZone: 'us-east-1b'
+      MapPublicIpOnLaunch: false
+
+  Subnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref Subnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  Subnet3RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref Subnet3
+      RouteTableId: !Ref PublicRouteTable
+
+  ElasticIP:
+    Type: 'AWS::EC2::EIP'
+    Properties: {}
+
+  NatGateway:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt ElasticIP.AllocationId
+      SubnetId: !Ref Subnet1
+
+  PrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NatGateway
+
+  Subnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref Subnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  Subnet4RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref Subnet4
+      RouteTableId: !Ref PrivateRouteTable
+
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Enable SSH and HTTP access'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: '0.0.0.0/0'
+
+  PublicEC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-00beae93a2d981137 
+      SubnetId: !Ref Subnet1
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      KeyName: 'salih-finalexam-PublicEC2Instance' 
+
+  PrivateEC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-00beae93a2d981137 
+      SubnetId: !Ref Subnet2
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      KeyName: salih-finalExam-PrivateEC2Instan 
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+
+  PublicEC2InstanceId:
+    Description: Public EC2 Instance ID
+    Value: !Ref PublicEC2Instance
+
+  PrivateEC2InstanceId:
+    Description: Private EC2 Instance ID
+    Value: !Ref PrivateEC2Instance
